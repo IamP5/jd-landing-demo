@@ -1,10 +1,13 @@
 @import "tailwindcss";
 
 :root {
+  /* paleta afinada com as capas de Diabo / Em Seu Lugar: P&B de papel
+     fotocopiado + vermelho mantido; o azul segue o matiz da capa mas
+     eletrificado — como acento/CTA o tom empoeirado ficava sem vida */
   --jd-black: #1f1f1f;
-  --jd-cream: #e5dec9;
-  --jd-off: #f4f4f4;
-  --jd-teal: #00a1a1;
+  --jd-cream: #efeeea;
+  --jd-off: #f6f7f7;
+  --jd-blue: #7d9bff;
   --jd-coral: #ec6060;
 }
 
@@ -12,7 +15,7 @@
   --color-jd-black: var(--jd-black);
   --color-jd-cream: var(--jd-cream);
   --color-jd-off: var(--jd-off);
-  --color-jd-teal: var(--jd-teal);
+  --color-jd-blue: var(--jd-blue);
   --color-jd-coral: var(--jd-coral);
   --font-archivo: var(--font-archivo);
   --font-fraktur: var(--font-fraktur);
@@ -35,7 +38,7 @@ body {
 }
 
 ::selection {
-  background: var(--jd-teal);
+  background: var(--jd-blue);
   color: var(--jd-black);
 }
 

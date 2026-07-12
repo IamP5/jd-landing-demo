@@ -17,7 +17,7 @@ export default function Events() {
     <section
       id="shows"
       ref={ref}
-      className="relative overflow-hidden bg-jd-black px-6 py-32 md:px-10"
+      className="relative overflow-hidden bg-jd-black px-6 pb-14 pt-24 md:px-10"
     >
       {/* atmosfera: foto de show ao fundo, neblina de palco */}
       <motion.img
@@ -40,7 +40,7 @@ export default function Events() {
             href={links.instagram}
             target="_blank"
             rel="noreferrer"
-            className="mt-8 inline-block rounded-full border border-jd-teal px-7 py-3.5 font-miltorn text-xs uppercase tracking-[0.25em] text-jd-teal transition-colors hover:bg-jd-teal hover:text-jd-black"
+            className="mt-8 inline-block rounded-full border border-jd-cream/80 px-7 py-3.5 font-miltorn text-xs uppercase tracking-[0.25em] text-jd-cream transition-colors hover:bg-jd-cream hover:text-jd-black"
           >
             Seguir no Instagram
           </a>
@@ -73,7 +73,7 @@ export default function Events() {
                       {show.venue}
                     </span>
                   </span>
-                  <span className="font-miltorn text-xs uppercase tracking-[0.25em] text-jd-teal opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <span className="font-miltorn text-xs uppercase tracking-[0.25em] text-jd-cream opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                     Ingressos ↗
                   </span>
                 </a>

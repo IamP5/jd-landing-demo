@@ -12,15 +12,16 @@ import { getLenis } from "@/lib/lenis";
 
 /**
  * Abertura do site: primeiro frame já pinta a cortina preta com o monograma
- * (SSR, sem flash), segura ~1s e sai em colunas que sobem em cascata com uma
- * folha teal por baixo — efeito de "descolar o papel da prensa".
- * O resto do site lê `useIntro()` pra disparar suas entradas em sincronia.
+ * (SSR, sem flash), segura ~1s e sai como duas folhas que a prensa puxa pra
+ * cima — a preta primeiro com uma linha de corte cream varrendo na borda,
+ * o papel cru logo atrás (mesma gramática de fotocopiadora dos carrosséis
+ * do hero). O resto do site lê `useIntro()` pra disparar suas entradas.
  */
 const IntroContext = createContext(false);
 export const useIntro = () => useContext(IntroContext);
 
-const EASE = [0.76, 0, 0.24, 1] as const;
-const COLUMNS = 5;
+// mesma curva PUSH dos carrosséis do hero
+const EASE = [0.77, 0, 0.18, 1] as const;
 const WIPE_START = 1.05; // segundos de "respiro" antes da cortina subir
 const TOTAL_MS = 2200;
 const REDUCED_MS = 600;
@@ -28,29 +29,25 @@ const REDUCED_MS = 600;
 function Curtain() {
   return (
     <div className="fixed inset-0 z-[80]" aria-hidden>
-      {/* folha teal por baixo — segundo tempo do wipe */}
+      {/* papel cru por baixo — segundo tempo do wipe, com hairline de corte */}
       <motion.div
-        initial={{ scaleY: 1 }}
-        animate={{ scaleY: 0 }}
-        transition={{ duration: 0.7, delay: WIPE_START + 0.28, ease: EASE }}
-        className="absolute inset-0 origin-top bg-jd-teal motion-reduce:hidden"
-      />
-      {/* colunas pretas subindo em cascata */}
-      <div className="absolute inset-0 flex">
-        {Array.from({ length: COLUMNS }, (_, i) => (
-          <motion.div
-            key={i}
-            initial={{ scaleY: 1 }}
-            animate={{ scaleY: 0 }}
-            transition={{
-              duration: 0.65,
-              delay: WIPE_START + i * 0.07,
-              ease: EASE,
-            }}
-            className="h-full flex-1 origin-top bg-jd-black motion-reduce:hidden"
-          />
-        ))}
-      </div>
+        initial={{ y: "0%" }}
+        animate={{ y: "-100%" }}
+        transition={{ duration: 0.7, delay: WIPE_START + 0.22, ease: EASE }}
+        className="absolute inset-0 bg-jd-cream motion-reduce:hidden"
+      >
+        <span className="absolute inset-x-0 bottom-0 h-px bg-jd-black/25" />
+      </motion.div>
+      {/* folha preta da prensa sobe inteira; a linha de corte cream na borda
+          inferior varre a tela junto, como o cut line do carrossel */}
+      <motion.div
+        initial={{ y: "0%" }}
+        animate={{ y: "-100%" }}
+        transition={{ duration: 0.65, delay: WIPE_START, ease: EASE }}
+        className="absolute inset-0 bg-jd-black motion-reduce:hidden"
+      >
+        <span className="absolute inset-x-0 bottom-0 h-[2px] bg-jd-cream" />
+      </motion.div>
       {/* fallback com movimento reduzido: fade simples */}
       <motion.div
         initial={{ opacity: 1 }}
@@ -75,7 +72,7 @@ function Curtain() {
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
           transition={{ duration: WIPE_START - 0.2, ease: "easeInOut", delay: 0.15 }}
-          className="block h-px w-28 origin-left bg-jd-coral"
+          className="block h-px w-28 origin-left bg-jd-cream/70"
         />
       </motion.div>
     </div>

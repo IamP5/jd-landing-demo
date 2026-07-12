@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   motion,
+  useReducedMotion,
   useScroll,
   useTransform,
   type MotionValue,
@@ -94,7 +95,7 @@ function StoryPhoto({
         <span className="font-fraktur text-xl text-jd-cream md:text-2xl">
           {caption}
         </span>
-        <span className="font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-teal">
+        <span className="font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-blue">
           ampliar +
         </span>
       </motion.figcaption>
@@ -175,7 +176,7 @@ function PressQuote({
       </motion.p>
       <motion.footer
         variants={riseIn}
-        className="mt-6 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-teal"
+        className="mt-6 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-blue"
       >
         {source}
       </motion.footer>
@@ -220,7 +221,7 @@ function WaveLine({
       <span className="font-fraktur text-3xl text-jd-cream md:text-5xl">
         {faixa.name}
       </span>
-      <span className="ml-4 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-teal">
+      <span className="ml-4 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-blue">
         {faixa.meta}
       </span>
     </motion.li>
@@ -269,7 +270,7 @@ function Credits() {
           <p className="font-fraktur text-2xl text-jd-cream md:text-3xl">
             {m.name}
           </p>
-          <p className="mt-2 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-teal">
+          <p className="mt-2 font-miltorn text-[10px] uppercase tracking-[0.3em] text-jd-blue">
             {m.role}
           </p>
         </motion.div>
@@ -286,12 +287,18 @@ function SunReveal() {
     offset: ["start start", "end end"],
   });
 
+  // stops explícitos em 0 e 1: sem eles, animações promovidas pra nativo
+  // (ViewTimeline) voltam pro valor base fora do range declarado
   const maskSize = useTransform(
     scrollYProgress,
-    [0.05, 0.85],
-    ["24vmin", "500vmax"],
+    [0, 0.05, 0.85, 1],
+    ["24vmin", "24vmin", "500vmax", "500vmax"],
   );
-  const titleOpacity = useTransform(scrollYProgress, [0, 0.12, 0.3], [0, 1, 0]);
+  const titleOpacity = useTransform(
+    scrollYProgress,
+    [0, 0.12, 0.3, 1],
+    [0, 1, 0, 0],
+  );
   const photoScale = useTransform(scrollYProgress, [0, 1], [1.15, 1]);
 
   return (
@@ -323,7 +330,7 @@ function SunReveal() {
           style={{ opacity: titleOpacity }}
           className="absolute inset-x-0 top-[14%] text-center"
         >
-          <p className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-teal">
+          <p className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-blue">
             presskit
           </p>
           <h2 className="mt-3 font-fraktur text-6xl text-jd-cream md:text-8xl">
@@ -335,12 +342,155 @@ function SunReveal() {
   );
 }
 
+/** Convite compacto: cita a abertura do SunReveal (sol estático) + CTA */
+function Invitation({
+  entered,
+  onEnter,
+}: {
+  entered: boolean;
+  onEnter: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div className="relative h-svh overflow-hidden bg-jd-black">
+      {/* mesma máscara do SunReveal, mas com tamanho fixo — é o truque de
+          continuidade: o frame inicial do scrub é idêntico a este */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1, transition: { duration: 1.1, ease: EXPO } }}
+        viewport={{ once: false, amount: 0.3 }}
+        className="absolute inset-0"
+      >
+        <motion.div
+          animate={reduceMotion ? undefined : { scale: [1, 1.04, 1] }}
+          transition={
+            reduceMotion
+              ? undefined
+              : { duration: 7, repeat: Infinity, ease: "easeInOut" }
+          }
+          style={{
+            maskImage: "url(/brand/sol.svg)",
+            WebkitMaskImage: "url(/brand/sol.svg)",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskPosition: "center",
+            maskSize: "24vmin",
+            WebkitMaskSize: "24vmin",
+          }}
+          className="absolute inset-0"
+        >
+          <img
+            src="/photos/promo-cobogo-2.jpg"
+            alt="Jardim Depressa em frente a um muro de cobogó"
+            className="h-full w-full object-cover grayscale"
+          />
+          <div className="absolute inset-0 bg-jd-coral/15 mix-blend-color" />
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: false, amount: 0.3 }}
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.1 } },
+        }}
+        className="absolute inset-x-0 top-[14%] text-center"
+      >
+        <motion.p
+          variants={riseIn}
+          className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-blue"
+        >
+          presskit
+        </motion.p>
+        <motion.h2
+          variants={riseIn}
+          className="mt-3 font-fraktur text-6xl text-jd-cream md:text-8xl"
+        >
+          Quem Somos
+        </motion.h2>
+      </motion.div>
+
+      <motion.div
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: false, amount: 0.3 }}
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.12, delayChildren: 0.3 } },
+        }}
+        className="absolute inset-x-0 bottom-[12%] flex flex-col items-center gap-7 px-5 text-center"
+      >
+        <motion.p
+          variants={riseIn}
+          className="font-lunaquete text-xl italic text-jd-cream/85 md:text-2xl"
+        >
+          tem uma história plantada aqui.
+        </motion.p>
+        <motion.button
+          variants={riseIn}
+          type="button"
+          aria-expanded={entered}
+          onClick={onEnter}
+          className="rounded-full border border-jd-cream/80 px-7 py-3.5 font-miltorn text-xs uppercase tracking-[0.25em] text-jd-cream transition-colors hover:bg-jd-cream hover:text-jd-black"
+        >
+          entrar no jardim
+        </motion.button>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function WhoWeAre() {
+  const [entered, setEntered] = useState(false);
+  const storyRef = useRef<HTMLDivElement>(null);
+
+  // após montar a história, leva o scroll pro topo do SunReveal pra que o
+  // scrub comece do início
+  useEffect(() => {
+    if (!entered) return;
+    const raf = requestAnimationFrame(() => {
+      const el = storyRef.current;
+      if (!el) return;
+      const lenis = (window as unknown as { lenis?: unknown }).lenis as
+        | {
+            resize?: () => void;
+            scrollTo?: (target: HTMLElement, opts?: { duration?: number }) => void;
+          }
+        | undefined;
+      // com wrapper=window o Lenis só re-mede a página no resize da janela;
+      // a história adiciona ~9k px e o limite interno fica velho — a roda
+      // (virtualizada) travava no fim da altura antiga. Força a re-medição.
+      lenis?.resize?.();
+      if (typeof lenis?.scrollTo === "function")
+        lenis.scrollTo(el, { duration: 1.2 });
+      else el.scrollIntoView({ behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [entered]);
+
+  if (!entered) {
+    return (
+      <section id="quem-somos" aria-label="Quem somos — presskit da banda">
+        <Invitation entered={entered} onEnter={() => setEntered(true)} />
+      </section>
+    );
+  }
+
   return (
     <section id="quem-somos" aria-label="Quem somos — presskit da banda">
-      <SunReveal />
+      <motion.div
+        ref={storyRef}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, ease: EXPO }}
+      >
+        <SunReveal />
 
-      <div className="bg-jd-black px-5 py-[14vh] md:px-10">
+        <div className="bg-jd-black px-5 py-[14vh] md:px-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-y-[18vh] md:gap-y-[26vh]">
           {/* 01 — origem */}
           <div className="grid grid-cols-12 items-center gap-x-6 gap-y-10">
@@ -548,7 +698,7 @@ export default function WhoWeAre() {
                   href={links.spotify}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full bg-jd-teal px-7 py-3.5 text-jd-black transition-transform hover:scale-105"
+                  className="rounded-full bg-jd-cream px-7 py-3.5 text-jd-black transition-transform hover:scale-105"
                 >
                   Ouvir no Spotify
                 </a>
@@ -556,7 +706,7 @@ export default function WhoWeAre() {
                   href={links.instagram}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-jd-coral px-7 py-3.5 text-jd-coral transition-colors hover:bg-jd-coral hover:text-jd-black"
+                  className="rounded-full border border-jd-cream/80 px-7 py-3.5 text-jd-cream transition-colors hover:bg-jd-cream hover:text-jd-black"
                 >
                   Seguir no Instagram
                 </a>
@@ -564,7 +714,8 @@ export default function WhoWeAre() {
             </motion.div>
           </div>
         </div>
-      </div>
+        </div>
+      </motion.div>
     </section>
   );
 }
