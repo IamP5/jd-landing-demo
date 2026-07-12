@@ -76,6 +76,17 @@ export default function HeroPasteUp() {
   };
   const advance = () => goTo((index + 1) % SLIDES.length);
 
+  // no mobile os ticks somem (display:none mata a animação-relógio do fill),
+  // então o autoplay vira um timer com o mesmo ciclo: push (1.2s) + hold
+  useEffect(() => {
+    if (!isMobile || !running) return;
+    const t = setTimeout(() => {
+      setPrev(index);
+      setIndex((index + 1) % SLIDES.length);
+    }, 1200 + HOLD_MS);
+    return () => clearTimeout(t);
+  }, [isMobile, running, index]);
+
   // ---- scroll / saída ------------------------------------------------------
   const { scrollYProgress } = useScroll({
     target: runwayRef,
@@ -224,26 +235,26 @@ export default function HeroPasteUp() {
             Marquee coral; legível sobre QUALQUER foto pra sempre (~12.6:1) */}
         <motion.div
           style={{ x: plateX, rotate: -2, opacity: plateOpacity }}
-          className="absolute bottom-14 left-[-6vw] z-10 w-[112vw] bg-jd-cream px-[8vw] py-4 md:bottom-[5.5rem] md:py-5"
+          className="absolute bottom-12 left-[-6vw] z-10 w-[112vw] bg-jd-cream px-[8vw] py-3 md:bottom-[5.5rem] md:py-5"
         >
           <motion.div
             initial={reduced ? false : { opacity: 0, y: 18 }}
             animate={introDone ? { opacity: 1, y: 0 } : {}}
             transition={{ ...RISE, delay: 0.1 }}
-            className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3"
+            className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 md:gap-x-8 md:gap-y-3"
           >
             <span
-              className="mask-mark mask-logo block h-14 w-[11.375rem] shrink-0 text-jd-black md:h-20 md:w-[16.25rem]"
+              className="mask-mark mask-logo block h-10 w-[8.125rem] shrink-0 text-jd-black md:h-20 md:w-[16.25rem]"
               role="img"
               aria-label="Jardim Depressa"
             />
             {/* CTAs — tinta preta no papel, morando dentro da tira */}
-            <div className="flex flex-wrap items-center gap-3 font-miltorn text-[11px] uppercase tracking-[0.25em] md:gap-4">
+            <div className="flex flex-col items-start gap-0.5 font-miltorn text-[10px] uppercase tracking-[0.25em] md:flex-row md:flex-wrap md:items-center md:gap-4 md:text-[11px]">
               <a
                 href={links.spotify}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-jd-black px-6 py-3 text-jd-cream transition-transform hover:scale-105"
+                className="py-1 text-xs text-jd-black underline decoration-jd-black underline-offset-4 transition-colors hover:decoration-jd-black/60 md:rounded-full md:bg-jd-black md:px-6 md:py-3 md:text-[11px] md:text-jd-cream md:no-underline md:transition-transform md:hover:scale-105"
               >
                 Ouvir no Spotify
               </a>
@@ -253,7 +264,7 @@ export default function HeroPasteUp() {
                   href={nextShow.tickets ?? "#shows"}
                   target={nextShow.tickets ? "_blank" : undefined}
                   rel="noreferrer"
-                  className="py-3 text-center text-jd-black underline decoration-jd-black/40 underline-offset-4 transition-colors hover:decoration-jd-black"
+                  className="py-1 text-left text-jd-black underline decoration-jd-black/40 underline-offset-4 transition-colors hover:decoration-jd-black md:py-3 md:text-center"
                 >
                   {nextShow.city} ·{" "}
                   {new Date(nextShow.date + "T12:00:00").toLocaleDateString("pt-BR", {
@@ -264,8 +275,9 @@ export default function HeroPasteUp() {
                 </a>
               )}
             </div>
-            <div className="flex flex-col items-start gap-1">
-              {/* progresso segmentado — mobília de zine, tinta no papel */}
+            <div className="hidden flex-col items-start gap-1 md:flex">
+              {/* progresso segmentado — mobília de zine, tinta no papel
+                  (só no desktop: no mobile o autoplay roda por timer) */}
               <div className="flex items-center gap-1.5">
                 {SLIDES.map((s, i) => (
                   <button
@@ -298,7 +310,7 @@ export default function HeroPasteUp() {
                 ))}
               </div>
               {/* legenda — flip 0.2s DEPOIS do push começar (camadas dessincronizadas) */}
-              <div className="relative h-5 w-48 overflow-hidden md:w-56">
+              <div className="relative h-5 w-56 overflow-hidden">
                 <AnimatePresence initial={false}>
                   <motion.span
                     key={index}
