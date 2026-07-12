@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --jd-black: #1f1f1f;
+  --jd-cream: #e5dec9;
+  --jd-off: #f4f4f4;
+  --jd-teal: #00a1a1;
+  --jd-coral: #ec6060;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-jd-black: var(--jd-black);
+  --color-jd-cream: var(--jd-cream);
+  --color-jd-off: var(--jd-off);
+  --color-jd-teal: var(--jd-teal);
+  --color-jd-coral: var(--jd-coral);
+  --font-archivo: var(--font-archivo);
+  --font-fraktur: var(--font-fraktur);
+  --font-lunaquete: var(--font-lunaquete);
+  --font-miltorn: var(--font-miltorn);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: initial;
+}
+
+/* trava o scroll enquanto a cortina de abertura cobre a tela */
+html.intro-lock {
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--jd-teal);
+  color: var(--jd-black);
+}
+
+/* film-grain overlay for the vintage woodcut feel — vivo, tremula como filme */
+.grain {
+  position: fixed;
+  inset: -100px;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-jitter 0.9s steps(4) infinite;
+}
+
+@keyframes grain-jitter {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-40px, 28px);
+  }
+  50% {
+    transform: translate(32px, -44px);
+  }
+  75% {
+    transform: translate(-24px, -20px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* recolorable brand marks: SVG as mask, painted with currentColor */
+.mask-mark {
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+}
+.mask-monograma {
+  mask-image: url("/brand/monograma.svg");
+  -webkit-mask-image: url("/brand/monograma.svg");
+}
+.mask-logo {
+  mask-image: url("/brand/logo-tipografico.svg");
+  -webkit-mask-image: url("/brand/logo-tipografico.svg");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    animation: none;
+  }
 }
