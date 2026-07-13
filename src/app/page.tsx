@@ -4,11 +4,10 @@ import Nav from "@/components/Nav";
 import HeroLab from "@/components/hero-lab/HeroLab";
 import Music from "@/components/Music";
 import WhoWeAre from "@/components/WhoWeAre";
-import ProductShowcase from "@/components/ProductShowcase";
-import MerchIntro from "@/components/MerchIntro";
+import MerchChapter from "@/components/MerchChapter";
 import Events from "@/components/Events";
 import Footer from "@/components/Footer";
-import { products } from "@/data/site";
+import { NEXT_SECTION_PULL } from "@/components/PanelStack";
 
 export default function Home() {
   return (
@@ -17,11 +16,14 @@ export default function Home() {
       <HeroLab />
       <Events />
       <Music />
-      <MerchIntro />
-      {products.map((p) => (
-        <ProductShowcase key={p.id} product={p} />
-      ))}
-      <WhoWeAre />
+      <MerchChapter />
+      {/* a margem negativa faz o presskit subir POR CIMA do último painel de
+          merch (que segue pinado, afundando atrás dele) — é a mesma cortina que
+          roda entre os painéis, atravessando a fronteira do capítulo.
+          z acima da pilha (z-0) e abaixo da Nav (z-50). */}
+      <div className="relative z-40" style={{ marginTop: NEXT_SECTION_PULL }}>
+        <WhoWeAre />
+      </div>
       <Footer />
     </main>
   );
