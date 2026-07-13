@@ -47,7 +47,12 @@ export type Product = {
   tagline: string;
   price: string;
   image: string;
-  /** vetor decorativo que flutua atrás da camiseta */
+  /** vetor decorativo que flutua atrás da camiseta.
+
+      Usa as versões `-fundo`: a arte original traz a lettering ("Jardim
+      Depressa" no sol, o monograma JD em rosa no príncipe), que a camiseta já
+      estampa na frente — repetir isso gigante no fundo só suja a leitura. Os
+      arquivos originais seguem em public/brand/, intactos. */
   vector: string;
   theme: "light" | "dark";
   features: { title: string; text: string }[];
@@ -61,7 +66,7 @@ export const products: Product[] = [
     tagline: "O sol que te encara de volta.",
     price: "R$ 89",
     image: "/products/tee-preta.png",
-    vector: "/brand/sol.svg",
+    vector: "/brand/sol-fundo.svg",
     theme: "dark",
     features: [
       {
@@ -84,7 +89,7 @@ export const products: Product[] = [
     tagline: "Um príncipe em seu jardim de nuvens.",
     price: "R$ 89",
     image: "/products/tee-branca.png",
-    vector: "/brand/principe.svg",
+    vector: "/brand/principe-fundo.svg",
     theme: "light",
     features: [
       {
