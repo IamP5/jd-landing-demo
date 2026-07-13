@@ -1,9 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
-import { motion, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { useEffect, useMemo } from "react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from "motion/react";
 import { DeepLayer, type PanelProgress } from "@/components/PanelStack";
-import ProductShowcase from "@/components/ProductShowcase";
+import ProductShowcase, { type Tilt } from "@/components/ProductShowcase";
+import { useFinePointer } from "@/lib/media";
 import type { Product } from "@/data/site";
 
 /* ---------------------------------------------------------------------------
@@ -43,7 +51,7 @@ import type { Product } from "@/data/site";
     serigrafia: só o suficiente pra tirar o serrilhado da linha. Subir pra ~6 dá
     uma dissolução macia; a partir daí a estampa da camiseta preta começa a
     fantasmar por cima da branca. */
-const FEATHER_SVH = 2;
+const FEATHER_SVH = 3;
 /** o corte precisa varrer a tela inteira + a franja pra sumir/cobrir de vez */
 const TRAVEL_SVH = 100 + FEATHER_SVH;
 
@@ -52,6 +60,9 @@ const TRAVEL_SVH = 100 + FEATHER_SVH;
    A porcentagem é relativa ao invólucro (TRAVEL_SVH de altura), não ao painel. */
 const FEATHER_PCT = ((FEATHER_SVH / TRAVEL_SVH) * 100).toFixed(2);
 const WIPE_MASK = `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgb(0,0,0) ${FEATHER_PCT}%)`;
+
+/** a mola do tilt — a mesma nos dois mundos, senão eles não giram juntos */
+const MOLA = { stiffness: 150, damping: 18, mass: 0.4 };
 
 /** o monograma quase invisível, à deriva — a camada mais funda de todo painel */
 export function Watermark({ life }: { life: MotionValue<number> }) {
@@ -77,6 +88,8 @@ export default function MerchMorph({
   progress: PanelProgress;
 }) {
   const { life, morph } = progress;
+  const reduce = useReducedMotion();
+  const fine = useFinePointer();
 
   // o mundo de chegada não tem coreografia: ele É a pose final, o tempo todo
   const posed = useMotionValue(1);
@@ -85,14 +98,66 @@ export default function MerchMorph({
     [progress, posed],
   );
 
+  /* UM ponteiro, DUAS camisetas.
+
+     Cada ProductShowcase costumava ter o seu pointerX/pointerY e as suas molas,
+     alimentados por um onPointerMove no palco dele. Só que a máscara do mundo
+     creme também recorta o hit-testing: acima da linha de corte o cursor acerta
+     o mundo preto, abaixo dela acerta o creme — e o que perde recebe
+     `pointerleave` e devolve a rotação a zero. Resultado, medido com a emenda na
+     tela: a metade de cima em `matrix3d(...)` e a de baixo em `none`. As duas
+     metades da "mesma" camiseta giravam diferente, e a ilusão morria.
+
+     As molas nascem aqui e são as MESMAS nos dois mundos. O portão do tilt
+     continua sendo de cada um (ele só abre quando aquela camiseta assenta), mas
+     durante a varredura os dois valem 1 exato — os dois recebem compose = 1 —,
+     então as duas giram idênticas.
+
+     E o listener é no window, sem `getBoundingClientRect`: o palco é um
+     `sticky top-0 h-svh`, e enquanto está pinado (que é o único momento em que o
+     tilt existe) ele É o viewport. Antes eram dois `getBoundingClientRect()` por
+     pointermove dentro de uma subárvore com transform e perspective, no mesmo
+     frame em que o Motion escreve transforms — leitura de layout forçada. */
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const rotateY = useSpring(useTransform(pointerX, [-0.5, 0.5], [-9, 9]), MOLA);
+  const rotateX = useSpring(useTransform(pointerY, [-0.5, 0.5], [7, -7]), MOLA);
+  const tilt = useMemo<Tilt>(
+    () => ({ pointerX, pointerY, rotateX, rotateY }),
+    [pointerX, pointerY, rotateX, rotateY],
+  );
+
+  const pointerOn = fine && !reduce;
+  useEffect(() => {
+    if (!pointerOn) return;
+    const mover = (e: globalThis.PointerEvent) => {
+      pointerX.set(e.clientX / window.innerWidth - 0.5);
+      pointerY.set(e.clientY / window.innerHeight - 0.5);
+    };
+    window.addEventListener("pointermove", mover, { passive: true });
+    return () => window.removeEventListener("pointermove", mover);
+  }, [pointerOn, pointerX, pointerY]);
+
+  /* Sob reduced-motion a varredura não pode varrer — mas ela é a única porta pro
+     segundo produto, então não pode simplesmente sumir. Vira o mesmo gesto sem
+     deslocamento: o mundo creme já nasce cobrindo o quadro inteiro e só ACENDE
+     por cima do preto, ainda comandado pelo scroll. Sem franja, sem corte
+     andando, sem os planos fundos se cruzando. */
+
   // a linha de corte, em svh a partir do fundo do painel: TRAVEL → 0
   const cut = useTransform(morph, [0, 1], [TRAVEL_SVH, 0]);
-  const wrapY = useTransform(cut, (v) => `${v}svh`);
-  const holdY = useTransform(cut, (v) => `${-v}svh`); // contra-movimento: o conteúdo não anda
+  const wrapY = useTransform(cut, (v) => (reduce ? "0svh" : `${v}svh`));
+  // contra-movimento: o conteúdo não anda junto com a janela de recorte
+  const holdY = useTransform(cut, (v) => (reduce ? "0svh" : `${-v}svh`));
+  const wrapOpacity = useTransform(
+    morph,
+    [0, 0.12, 0.88, 1],
+    reduce ? [0, 0, 1, 1] : [1, 1, 1, 1],
+  );
 
   // parallax ATRAVESSANDO a emenda: o fundo preto afunda, o creme assenta
-  const deepOut = useTransform(morph, [0, 1], ["0%", "7%"]);
-  const deepIn = useTransform(morph, [0, 1], ["-7%", "0%"]);
+  const deepOut = useTransform(morph, [0, 1], ["0%", reduce ? "0%" : "7%"]);
+  const deepIn = useTransform(morph, [0, 1], [reduce ? "0%" : "-7%", "0%"]);
 
   // as qualidades TROCAM, fora de fase com a emenda, em vez de dissolver uma na
   // outra (ver a nota do `swap` no ProductShowcase). Saem antes de o corte
@@ -108,7 +173,12 @@ export default function MerchMorph({
           <Watermark life={life} />
         </DeepLayer>
       </motion.div>
-      <ProductShowcase product={from} progress={progress} swap={swapOut} />
+      <ProductShowcase
+        product={from}
+        progress={progress}
+        swap={swapOut}
+        tilt={tilt}
+      />
 
       {/* mundo de chegada — creme. Sobe por dentro, revelado pela franja.
           Mais alto que o painel: a franja mora na sobra de cima, então quando o
@@ -116,9 +186,10 @@ export default function MerchMorph({
       <motion.div
         style={{
           y: wrapY,
+          opacity: wrapOpacity,
           height: `${TRAVEL_SVH}svh`,
-          maskImage: WIPE_MASK,
-          WebkitMaskImage: WIPE_MASK,
+          maskImage: reduce ? undefined : WIPE_MASK,
+          WebkitMaskImage: reduce ? undefined : WIPE_MASK,
           maskRepeat: "no-repeat",
           WebkitMaskRepeat: "no-repeat",
           maskSize: "100% 100%",
@@ -135,7 +206,12 @@ export default function MerchMorph({
               <Watermark life={life} />
             </DeepLayer>
           </motion.div>
-          <ProductShowcase product={to} progress={toProgress} swap={swapIn} />
+          <ProductShowcase
+            product={to}
+            progress={toProgress}
+            swap={swapIn}
+            tilt={tilt}
+          />
         </motion.div>
       </motion.div>
     </>
