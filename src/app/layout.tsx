@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import IntroProvider from "@/components/Intro";
+import AudioAmbience from "@/components/AudioAmbience";
 
 // corpo e UI: grotesca editorial, contraste limpo com a blackletter da marca
 const archivo = Archivo({
@@ -56,6 +57,9 @@ export default function RootLayout({
         <SmoothScroll>
           <IntroProvider>{children}</IntroProvider>
         </SmoothScroll>
+        {/* irmão direto do <body>: sem ancestral transformado, position:fixed é
+            fixo na viewport de verdade (o .grain já prova isso) */}
+        <AudioAmbience />
         <div className="grain" aria-hidden />
       </body>
     </html>

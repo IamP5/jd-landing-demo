@@ -279,8 +279,60 @@ function Credits() {
   );
 }
 
-/** Foto revelada pela máscara de sol que cresce com o scroll (abertura) */
-function SunReveal() {
+/**
+ * Foto revelada pela máscara do monograma JD, que cresce com o scroll até abrir
+ * o quadro inteiro — o mesmo gesto do sol, agora com as letras da marca.
+ *
+ * Uma marca é traço, não disco: ampliada a partir do centro geométrico, as
+ * contraformas do J e do D seguem recortando a foto por maior que ela fique — o
+ * centro do monograma cai justo no vão entre as duas letras. O zoom precisa ser
+ * ancorado DENTRO da tinta pra fechar o quadro.
+ *
+ * Só que a âncora do zoom é a MESMA propriedade que posiciona a marca
+ * (mask-position), então ancorar na tinta com um `43,1% 42,2%` jogava o JD pra
+ * fora do centro da tela. Daí a máscara ter um SVG só dela: monograma-mask.svg é
+ * o monograma com o viewBox expandido simetricamente em volta do ponto de tinta
+ * mais grossa (maior círculo inscrito, achado por transformada de distância).
+ * Nesse SVG a tinta grossa cai exatamente em 50% 50% — então `center` centraliza
+ * a marca E ancora o zoom na tinta de uma vez só. Regenerar com a fórmula do
+ * comentário no topo do arquivo gerado, se o monograma mudar.
+ *
+ * Tamanho final: raio inscrito de 5,07% da largura da máscara contra 0,707 tela
+ * até o canto (âncora no centro) → a máscara precisa de ~14 telas (~1395vmax).
+ * MASK_TO leva a 2000vmax de folga. O traço grosso do monograma sai barato: o
+ * logotipo tipográfico, de haste fina (raio 1,46%), pedia 6500vmax pro mesmo.
+ * (Cuidado: vmax é 1% da viewport, não uma tela — 160vmax dá 2% de tinta, não 2×.)
+ */
+const MASK_SRC = "url(/brand/monograma-mask.svg)";
+const MASK_ANCHOR = "center";
+const MASK_FROM = "22vmax";
+const MASK_TO = "2000vmax";
+
+/**
+ * Sobra um resíduo: no SVG padded quem está no centro é a TINTA, e o desenho fica
+ * 6,1% / 6,8% pra direita e pra baixo dela — o JD nasceria fora do eixo da tela.
+ * (Não dá pra resolver na mask-position: ela é, ao mesmo tempo, o lugar da marca e
+ * o ponto fixo do zoom. Em % a única posição que centraliza o desenho é 50%, e aí
+ * o ponto fixo volta a ser o vão entre as letras — o caso que nunca fecha.)
+ * Então a camada mascarada nasce empurrada de volta pro centro e o empurrão morre
+ * nos primeiros 20% do scroll, quando a marca já cresceu e o que importa é a
+ * âncora. Enquanto o nudge existe a máscara ainda é pequena, então a foto (que
+ * anda junto) nunca deixa borda aparecendo. Valores = desvio × MASK_FROM.
+ */
+const MARK_NUDGE = "translate(-1.33vmax, -1.59vmax)";
+const MARK_CENTERED = "translate(0vmax, 0vmax)";
+
+/**
+ * Enquanto o logotipo é pequeno, as letras caem justo em cima das roupas pretas
+ * da foto — tinta escura sobre fundo escuro, nome ilegível. Então a foto entra
+ * com os pretos levantados (contraste comprimido + brilho), o que faz o nome ler
+ * como cinza-médio contra o jd-black. A gradação volta ao normal conforme a
+ * máscara abre: quando o quadro toma a tela inteira, a foto está intacta.
+ */
+const PHOTO_LIFTED = "grayscale(1) contrast(0.72) brightness(1.75)";
+const PHOTO_NEUTRAL = "grayscale(1) contrast(1) brightness(1)";
+
+function MarkReveal() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -288,11 +340,23 @@ function SunReveal() {
   });
 
   // stops explícitos em 0 e 1: sem eles, animações promovidas pra nativo
-  // (ViewTimeline) voltam pro valor base fora do range declarado
+  // (ViewTimeline) voltam pro valor base fora do range declarado.
+  // Mesma unidade nas duas pontas — o motion reaproveita o template da primeira
+  // string, então misturar vmin com vmax faria o fim virar vmin escondido.
+  //
+  // Os stops crescem em progressão geométrica (~×2,9 por trecho): o zoom é
+  // percebido em escala log, e uma rampa linear até 2000 queimaria o momento em
+  // que o monograma ainda se lê como marca já nos primeiros 5% do scroll.
   const maskSize = useTransform(
     scrollYProgress,
-    [0, 0.05, 0.85, 1],
-    ["24vmin", "24vmin", "500vmax", "500vmax"],
+    [0, 0.05, 0.28, 0.5, 0.68, 0.84, 1],
+    [MASK_FROM, MASK_FROM, "68vmax", "210vmax", "650vmax", MASK_TO, MASK_TO],
+  );
+  // a gradação levantada só serve enquanto o nome é pequeno; some junto com ele
+  const photoFilter = useTransform(
+    scrollYProgress,
+    [0, 0.4, 1],
+    [PHOTO_LIFTED, PHOTO_NEUTRAL, PHOTO_NEUTRAL],
   );
   const titleOpacity = useTransform(
     scrollYProgress,
@@ -300,49 +364,55 @@ function SunReveal() {
     [0, 1, 0, 0],
   );
   const photoScale = useTransform(scrollYProgress, [0, 1], [1.15, 1]);
+  // o nudge morre cedo: a partir daí quem manda é a âncora de tinta (ver MARK_NUDGE)
+  const markNudge = useTransform(
+    scrollYProgress,
+    [0, 0.2, 1],
+    [MARK_NUDGE, MARK_CENTERED, MARK_CENTERED],
+  );
 
   return (
     <div ref={ref} className="relative h-[250vh] bg-jd-black">
       <div className="sticky top-0 h-svh overflow-hidden">
-        <motion.div
-          style={{
-            maskImage: "url(/brand/sol.svg)",
-            WebkitMaskImage: "url(/brand/sol.svg)",
-            maskRepeat: "no-repeat",
-            WebkitMaskRepeat: "no-repeat",
-            maskPosition: "center",
-            WebkitMaskPosition: "center",
-            maskSize,
-            WebkitMaskSize: maskSize,
-          }}
-          className="absolute inset-0"
-        >
-          <motion.img
-            src="/photos/promo-cobogo-2.jpg"
-            alt="Jardim Depressa em frente a um muro de cobogó"
-            style={{ scale: photoScale }}
-            className="h-full w-full object-cover grayscale"
-          />
-          <div className="absolute inset-0 bg-jd-coral/15 mix-blend-color" />
+        <motion.div style={{ transform: markNudge }} className="absolute inset-0">
+          <motion.div
+            style={{
+              maskImage: MASK_SRC,
+              WebkitMaskImage: MASK_SRC,
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: MASK_ANCHOR,
+              WebkitMaskPosition: MASK_ANCHOR,
+              maskSize,
+              WebkitMaskSize: maskSize,
+            }}
+            className="absolute inset-0"
+          >
+            {/* o grayscale mora no filter animado — a classe do Tailwind seria
+                sobrescrita pelo style inline de qualquer jeito */}
+            <motion.img
+              src="/photos/hero-test-xcx.jpg"
+              alt="Os quatro integrantes do Jardim Depressa reunidos em retrato de estúdio"
+              style={{ scale: photoScale, filter: photoFilter }}
+              className="h-full w-full object-cover"
+            />
+          </motion.div>
         </motion.div>
 
         <motion.div
           style={{ opacity: titleOpacity }}
           className="absolute inset-x-0 top-[14%] text-center"
         >
-          <p className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-blue">
+          <p className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-coral">
             presskit
           </p>
-          <h2 className="mt-3 font-fraktur text-6xl text-jd-cream md:text-8xl">
-            Quem Somos
-          </h2>
         </motion.div>
       </div>
     </div>
   );
 }
 
-/** Convite compacto: cita a abertura do SunReveal (sol estático) + CTA */
+/** Convite compacto: cita a abertura do MarkReveal (logotipo estático) + CTA */
 function Invitation({
   entered,
   onEnter,
@@ -354,12 +424,13 @@ function Invitation({
 
   return (
     <div className="relative h-svh overflow-hidden bg-jd-black">
-      {/* mesma máscara do SunReveal, mas com tamanho fixo — é o truque de
+      {/* mesma máscara do MarkReveal, mas com tamanho fixo — é o truque de
           continuidade: o frame inicial do scrub é idêntico a este */}
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1, transition: { duration: 1.1, ease: EXPO } }}
         viewport={{ once: false, amount: 0.3 }}
+        style={{ transform: MARK_NUDGE }}
         className="absolute inset-0"
       >
         <motion.div
@@ -370,23 +441,24 @@ function Invitation({
               : { duration: 7, repeat: Infinity, ease: "easeInOut" }
           }
           style={{
-            maskImage: "url(/brand/sol.svg)",
-            WebkitMaskImage: "url(/brand/sol.svg)",
+            maskImage: MASK_SRC,
+            WebkitMaskImage: MASK_SRC,
             maskRepeat: "no-repeat",
             WebkitMaskRepeat: "no-repeat",
-            maskPosition: "center",
-            WebkitMaskPosition: "center",
-            maskSize: "24vmin",
-            WebkitMaskSize: "24vmin",
+            maskPosition: MASK_ANCHOR,
+            WebkitMaskPosition: MASK_ANCHOR,
+            maskSize: MASK_FROM,
+            WebkitMaskSize: MASK_FROM,
           }}
           className="absolute inset-0"
         >
+          {/* mesma gradação levantada do primeiro frame do scrub */}
           <img
-            src="/photos/promo-cobogo-2.jpg"
-            alt="Jardim Depressa em frente a um muro de cobogó"
-            className="h-full w-full object-cover grayscale"
+            src="/photos/hero-test-xcx.jpg"
+            alt="Os quatro integrantes do Jardim Depressa reunidos em retrato de estúdio"
+            style={{ filter: PHOTO_LIFTED }}
+            className="h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-jd-coral/15 mix-blend-color" />
         </motion.div>
       </motion.div>
 
@@ -402,16 +474,10 @@ function Invitation({
       >
         <motion.p
           variants={riseIn}
-          className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-blue"
+          className="font-miltorn text-xs uppercase tracking-[0.35em] text-jd-coral"
         >
           presskit
         </motion.p>
-        <motion.h2
-          variants={riseIn}
-          className="mt-3 font-fraktur text-6xl text-jd-cream md:text-8xl"
-        >
-          Quem Somos
-        </motion.h2>
       </motion.div>
 
       <motion.div
@@ -448,7 +514,7 @@ export default function WhoWeAre() {
   const [entered, setEntered] = useState(false);
   const storyRef = useRef<HTMLDivElement>(null);
 
-  // após montar a história, leva o scroll pro topo do SunReveal pra que o
+  // após montar a história, leva o scroll pro topo do MarkReveal pra que o
   // scrub comece do início
   useEffect(() => {
     if (!entered) return;
@@ -488,7 +554,7 @@ export default function WhoWeAre() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, ease: EXPO }}
       >
-        <SunReveal />
+        <MarkReveal />
 
         <div className="bg-jd-black px-5 py-[14vh] md:px-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-y-[18vh] md:gap-y-[26vh]">

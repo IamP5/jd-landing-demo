@@ -90,8 +90,35 @@ body {
   -webkit-mask-image: url("/brand/logo-tipografico.svg");
 }
 
+/* véu de áudio: acima da Nav (z-50, mix-blend-difference) e abaixo do grão (z-60).
+   Só pinta no escuro — sobre o creme e sobre o coral o screen quase não existe.
+   --jd-bass/--jd-tre são escritos na própria camada pelo AudioAmbience. */
+.ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity;
+  background:
+    radial-gradient(
+      120% 90% at 50% 112%,
+      rgb(236 96 96 / calc(var(--jd-bass, 0) * 0.14)),
+      transparent 62%
+    ),
+    radial-gradient(
+      110% 70% at 50% -12%,
+      rgb(125 155 255 / calc(var(--jd-tre, 0) * 0.08)),
+      transparent 58%
+    );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .grain {
     animation: none;
+  }
+  .ambience {
+    display: none;
   }
 }
