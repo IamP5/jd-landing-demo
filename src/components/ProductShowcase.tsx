@@ -81,9 +81,18 @@ function ProductBackdrop({
 export default function ProductShowcase({
   product,
   progress,
+  swap,
 }: {
   product: Product;
   progress: PanelProgress;
+  /* Opacidade do bloco que TROCA em vez de varrer (só o painel-morfose passa).
+
+     A camiseta e o preço atravessam o corte: são a mesma caixa e o mesmo texto
+     nos dois produtos, então a emenda passando por eles lê como recolorir. As
+     qualidades, não — são prosas diferentes, e dissolver dois textos diferentes
+     vira sopa em qualquer franja. Então elas saem e entram fora de fase com a
+     varredura, e nunca coexistem na emenda. */
+  swap?: MotionValue<number>;
 }) {
   const { compose, life } = progress;
   // -0.5..0.5 relativo ao centro do palco
@@ -197,38 +206,48 @@ export default function ProductShowcase({
             {product.price}
           </span>
         </Spec>
-        {product.features.map((f, i) => (
-          <Spec
-            key={f.title}
-            progress={compose}
-            at={0.6 + i * 0.05}
-            className={`mt-3 border-t pt-3 md:mt-4 md:pt-4 ${
-              dark ? "border-jd-cream/10" : "border-jd-black/10"
-            }`}
-          >
-            <h4
-              className="font-miltorn text-[10px] uppercase tracking-[0.3em] md:text-xs"
-              style={{ color: accent }}
-            >
-              {f.title}
-            </h4>
-            <p className="mt-1 hidden text-sm leading-relaxed opacity-75 md:block">
-              {f.text}
-            </p>
-          </Spec>
-        ))}
-        <Spec progress={compose} at={0.8} className="mt-5 md:mt-8">
-          <Magnetic>
-            <a
-              href={product.buy ?? "#"}
-              className={`inline-block rounded-full px-8 py-4 font-miltorn text-xs uppercase tracking-[0.25em] transition-transform hover:scale-105 ${
-                dark ? "bg-jd-cream text-jd-black" : "bg-jd-black text-jd-cream"
+
+        <motion.div style={{ opacity: swap }}>
+          {product.features.map((f, i) => (
+            <Spec
+              key={f.title}
+              progress={compose}
+              at={0.6 + i * 0.05}
+              className={`mt-3 border-t pt-3 md:mt-4 md:pt-4 ${
+                dark ? "border-jd-cream/10" : "border-jd-black/10"
               }`}
             >
-              Comprar {product.name}
-            </a>
-          </Magnetic>
-        </Spec>
+              <h4
+                className="font-miltorn text-[10px] uppercase tracking-[0.3em] md:text-xs"
+                style={{ color: accent }}
+              >
+                {f.title}
+              </h4>
+              {/* duas linhas SEMPRE, mesmo quando a prosa cabe em uma: é o que
+                  mantém as duas fichas com a mesma altura. Como o card é
+                  centrado, um bloco a mais de linha num produto empurrava tudo
+                  ~12px pra baixo e tirava o preço de registro entre os mundos —
+                  e aí a varredura mostrava dois "R$ 89" desencontrados. */}
+              <p className="mt-1 hidden text-sm leading-relaxed opacity-75 md:block md:min-h-[2lh]">
+                {f.text}
+              </p>
+            </Spec>
+          ))}
+          <Spec progress={compose} at={0.8} className="mt-5 md:mt-8">
+            <Magnetic>
+              <a
+                href={product.buy ?? "#"}
+                className={`inline-block rounded-full px-8 py-4 font-miltorn text-xs uppercase tracking-[0.25em] transition-transform hover:scale-105 ${
+                  dark
+                    ? "bg-jd-cream text-jd-black"
+                    : "bg-jd-black text-jd-cream"
+                }`}
+              >
+                Comprar {product.name}
+              </a>
+            </Magnetic>
+          </Spec>
+        </motion.div>
       </div>
     </div>
   );

@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { motion, motionValue, useTransform, type MotionValue } from "motion/react";
 import Snap from "lenis/snap";
 import { onLenisReady } from "@/lib/lenis";
@@ -29,28 +24,36 @@ import { onLenisReady } from "@/lib/lenis";
       cima do anterior     a composição    (o snap      por cima deste
                            se monta        pousa aqui)  (este recua)
 
-   espaçador = COMPOSE + HOLD. O último leva +100 pra segurar o painel pinado
+   Um painel `morph` tem DOIS atos em vez de um — ele não é coberto pelo
+   seguinte, ele se transforma por dentro (ver MerchMorph):
+
+     |<-- COMPOSE -->|<-- HOLD -->|<-- MORPH -->|<-- HOLD -->|
+      pose A           snap        a varredura   pose B
+                                   troca o mundo (snap)
+                                   sob o objeto
+
+   espaçador = a soma dos atos. O último painel leva +100 pra segurar o pin
    enquanto a seção seguinte (fora da pilha) sobe por cima dele.
 --------------------------------------------------------------------------- */
 
 /** scroll pinado em que a composição do painel se monta */
 export const COMPOSE_SVH = 60;
-/** descanso na pose, antes da próxima cortina começar */
+/** descanso na pose, antes do próximo ato começar */
 export const HOLD_SVH = 24;
 /** o painel seguinte sobe uma tela inteira por cima — é o tamanho do painel */
 export const CURTAIN_SVH = 100;
-/** espaçador entre painéis */
-export const SPACER_SVH = COMPOSE_SVH + HOLD_SVH;
-/** espaçador depois do último painel: segura o pin durante a cortina de saída */
-export const TAIL_SVH = SPACER_SVH + CURTAIN_SVH;
+/** a varredura de um painel `morph`: um pouco mais lenta que o scroll, pra pesar */
+export const MORPH_SVH = 120;
 
 /** margem negativa que a seção seguinte precisa pra subir por cima do último painel */
 export const NEXT_SECTION_PULL = `-${CURTAIN_SVH}svh`;
 
-/** os três tempos de um painel, como MotionValues — o conteúdo pluga direto no useTransform */
+/** os tempos de um painel, como MotionValues — o conteúdo pluga direto no useTransform */
 export type PanelProgress = {
   /** 0→1 enquanto o painel, já pinado, monta a composição */
   compose: MotionValue<number>;
+  /** 0→1 na varredura interna (só em painel `morph`; nos outros fica em 0) */
+  morph: MotionValue<number>;
   /** 0→1 enquanto o painel SEGUINTE sobe por cima — é a recuada */
   cover: MotionValue<number>;
   /** 0→1 da hora que aparece até ficar coberto — o tempo lento, pro parallax de fundo */
@@ -61,6 +64,8 @@ export type PanelDef = {
   id: string;
   /** cor sólida do painel (ex.: "bg-jd-black text-jd-cream") */
   className: string;
+  /** dá ao painel um segundo ato: `morph` vira um tempo próprio entre duas poses */
+  morph?: boolean;
   /** camada mais funda: anda devagar, é o que dá profundidade */
   background?: (p: PanelProgress) => ReactNode;
   /** primeiro plano */
@@ -68,6 +73,32 @@ export type PanelDef = {
 };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/** runway pinado de um painel, sem contar a cortina de saída */
+const actsSvh = (panel: PanelDef) =>
+  panel.morph
+    ? COMPOSE_SVH + HOLD_SVH + MORPH_SVH + HOLD_SVH
+    : COMPOSE_SVH + HOLD_SVH;
+
+/** espaçador que segue o painel no fluxo (o último segura o pin na cortina de saída) */
+const spacerSvh = (panel: PanelDef, last: boolean) =>
+  actsSvh(panel) + (last ? CURTAIN_SVH : 0);
+
+/** camada funda de um painel: anda MENOS que o primeiro plano — é essa diferença que lê como distância */
+export function DeepLayer({
+  life,
+  children,
+}: {
+  life: MotionValue<number>;
+  children: ReactNode;
+}) {
+  const y = useTransform(life, [0, 1], ["-9%", "9%"]);
+  return (
+    <motion.div style={{ y }} className="absolute inset-x-0 -inset-y-[12%]">
+      {children}
+    </motion.div>
+  );
+}
 
 export default function PanelStack({
   id,
@@ -85,6 +116,7 @@ export default function PanelStack({
     () =>
       panels.map(() => ({
         compose: motionValue(0),
+        morph: motionValue(0),
         cover: motionValue(0),
         life: motionValue(0),
       })),
@@ -94,13 +126,15 @@ export default function PanelStack({
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
-      // sem movimento: cada painel já nasce composto, sem recuo e sem snap
+      // sem coreografia: cada painel já nasce composto e sem recuo.
+      // O `morph` continua vindo do scroll — ele não é enfeite, é o que faz o
+      // segundo produto EXISTIR; congelado, um dos dois ficaria escondido pra
+      // sempre embaixo do outro.
       progress.forEach((p) => {
         p.compose.set(1);
         p.cover.set(0);
         p.life.set(0.5);
       });
-      return;
     }
 
     // a unidade é a ALTURA REAL DO PAINEL (100svh em px), não window.innerHeight:
@@ -113,32 +147,49 @@ export default function PanelStack({
       const first = panelRefs.current[0];
       if (!first) return;
       unit = first.offsetHeight;
+      const svh = unit / 100;
       tops = markRefs.current.map((m) =>
         m ? m.getBoundingClientRect().top + window.scrollY : 0,
       );
-      // um frame por painel: a pose, no fim do COMPOSE
-      frames = tops.map((t) => t + (COMPOSE_SVH / 100) * unit);
+
+      // um frame por POSE — o painel morph tem duas (antes e depois da varredura)
+      frames = [];
+      panels.forEach((panel, i) => {
+        frames.push(tops[i] + COMPOSE_SVH * svh);
+        if (panel.morph) {
+          frames.push(
+            tops[i] + (COMPOSE_SVH + HOLD_SVH + MORPH_SVH) * svh,
+          );
+        }
+      });
       // e o frame da seção seguinte, quando ela termina de cobrir o último painel
-      const last = tops[tops.length - 1];
-      if (last !== undefined) {
-        frames.push(last + ((CURTAIN_SVH + SPACER_SVH) / 100) * unit);
-      }
+      const i = panels.length - 1;
+      frames.push(tops[i] + (CURTAIN_SVH + actsSvh(panels[i])) * svh);
     };
 
     const update = () => {
       if (!unit) return;
       const y = window.scrollY;
-      const composePx = (COMPOSE_SVH / 100) * unit;
-      const spacerPx = (SPACER_SVH / 100) * unit;
+      const svh = unit / 100;
       for (let i = 0; i < progress.length; i++) {
         const top = tops[i];
         const p = progress[i];
+        const acts = actsSvh(panels[i]) * svh;
+
+        if (panels[i].morph) {
+          // a varredura interna: começa quando o hold da primeira pose acaba
+          const from = top + (COMPOSE_SVH + HOLD_SVH) * svh;
+          p.morph.set(clamp01((y - from) / (MORPH_SVH * svh)));
+        }
+
+        if (reduce) continue;
+
         // pinado, montando a composição
-        p.compose.set(clamp01((y - top) / composePx));
-        // o painel seguinte subindo por cima: começa quando o hold acaba
-        p.cover.set(clamp01((y - (top + spacerPx)) / unit));
+        p.compose.set(clamp01((y - top) / (COMPOSE_SVH * svh)));
+        // o painel seguinte subindo por cima: começa quando os atos acabam
+        p.cover.set(clamp01((y - (top + acts)) / unit));
         // vida inteira: entra por baixo (−1 tela) e sai coberto (+1 tela)
-        p.life.set(clamp01((y - (top - unit)) / (2 * unit + spacerPx)));
+        p.life.set(clamp01((y - (top - unit)) / (2 * unit + acts)));
       }
     };
 
@@ -147,7 +198,11 @@ export default function PanelStack({
        o scroll para. Isso é ótimo aqui (a pilha é uma sequência de pôsteres) e
        péssimo nas seções editoriais — Música tem 234vh de conteúdo e o hero
        219vh; puxar alguém que parou pra ler seria hostil. Por isso o snap é
-       ligado/desligado na fronteira da pilha, e não no site inteiro.        */
+       ligado/desligado na fronteira da pilha, e não no site inteiro.
+
+       Num painel morph isso ainda ganha um bônus: como as duas poses são frames
+       e a varredura não é, ninguém consegue estacionar com a emenda parada no
+       meio da tela — ou o mundo é preto, ou é creme.                          */
     let snap: Snap | undefined;
     let removeSnaps: (() => void)[] = [];
     let inRegion = false;
@@ -183,18 +238,20 @@ export default function PanelStack({
     ro.observe(document.body);
     window.addEventListener("resize", remeasure);
 
-    const stopWaiting = onLenisReady((lenis) => {
-      snap = new Snap(lenis, {
-        type: "mandatory",
-        debounce: 500,
-        duration: 0.9,
-        // quártica: sai rápido e assenta — o "decidido" que a landing pede
-        easing: (t) => 1 - Math.pow(1 - t, 4),
-      });
-      snap.stop(); // nasce dormindo; só acorda dentro da pilha
-      syncFrames();
-      syncRegion();
-    });
+    const stopWaiting = reduce
+      ? () => {}
+      : onLenisReady((lenis) => {
+          snap = new Snap(lenis, {
+            type: "mandatory",
+            debounce: 500,
+            duration: 0.9,
+            // quártica: sai rápido e assenta — o "decidido" que a landing pede
+            easing: (t) => 1 - Math.pow(1 - t, 4),
+          });
+          snap.stop(); // nasce dormindo; só acorda dentro da pilha
+          syncFrames();
+          syncRegion();
+        });
 
     const onScroll = () => {
       update();
@@ -211,7 +268,7 @@ export default function PanelStack({
       removeSnaps.forEach((off) => off());
       snap?.destroy();
     };
-  }, [progress]);
+  }, [panels, progress]);
 
   return (
     // z-0 abre um contexto de empilhamento: os painéis sticky ficam contidos
@@ -255,8 +312,6 @@ function PanelBlock({
   // preto↔creme em profundidade, em vez de uma emenda deslizando
   const scale = useTransform(progress.cover, [0, 1], [1, 0.92]);
   const veil = useTransform(progress.cover, [0, 1], [0, 0.5]);
-  // o fundo anda MENOS que o primeiro plano: é essa diferença que lê como distância
-  const bgY = useTransform(progress.life, [0, 1], ["-9%", "9%"]);
 
   return (
     <>
@@ -269,10 +324,9 @@ function PanelBlock({
         style={{ scale, zIndex: index + 1 }}
         className={`sticky top-0 h-svh overflow-hidden ${panel.className}`}
       >
-        {/* camada funda */}
-        <motion.div style={{ y: bgY }} className="absolute -inset-y-[12%] inset-x-0">
-          {panel.background?.(progress)}
-        </motion.div>
+        {panel.background && (
+          <DeepLayer life={progress.life}>{panel.background(progress)}</DeepLayer>
+        )}
 
         {/* primeiro plano */}
         {panel.content(progress)}
@@ -287,7 +341,7 @@ function PanelBlock({
 
       <div
         aria-hidden
-        style={{ height: `${last ? TAIL_SVH : SPACER_SVH}svh` }}
+        style={{ height: `${spacerSvh(panel, last)}svh` }}
       />
     </>
   );
