@@ -46,7 +46,26 @@ export default function SmoothScroll({
   return (
     <ReactLenis
       root
-      options={{ lerp: 0.09, wheelMultiplier: 1, autoRaf: false }}
+      options={{
+        lerp: 0.09,
+        wheelMultiplier: 1,
+        autoRaf: false,
+        /* syncTouch: o Lenis passa a DIRIGIR o toque em vez de deixar o scroll
+           nativo rolar. É o que faz o snap da PanelStack existir no celular —
+           o Snap escuta `virtual-scroll`, que só é emitido quando o Lenis está
+           no comando do gesto. Sem isto, o merch no mobile tem inércia nativa
+           e nenhum snap.
+
+           O preço é global (vale pra página inteira, não só pro merch): a
+           inércia deixa de ser a do sistema e passa a ser simulada, o que no
+           iOS costuma ser o ponto de atrito — barra de endereço, rubber-band
+           nas pontas, e a rolagem podendo parecer "escorregadia" perto do topo
+           e do rodapé. Se incomodar, é só apagar as três linhas abaixo: o site
+           volta ao toque nativo e o snap simplesmente dorme no celular. */
+        syncTouch: true,
+        syncTouchLerp: 0.075, // padrão do Lenis; menor = mais "pesado"
+        touchInertiaExponent: 1.7, // padrão; menor = a inércia morre mais cedo
+      }}
       ref={ref}
     >
       {children}
