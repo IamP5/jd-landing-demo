@@ -11,7 +11,6 @@ import {
 } from "motion/react";
 import { onLenisReady } from "@/lib/lenis";
 import { criarSnapContinuo } from "@/lib/snap-continuo";
-import { getScrollMode, onScrollModeChange } from "@/lib/scroll-mode";
 
 /* ---------------------------------------------------------------------------
    Pilha de painéis grudados (sticky stack)
@@ -286,17 +285,11 @@ export default function PanelStack({
 
     const syncFrames = () => snap?.setFrames(frames, unit);
 
-    // o snap está aceso quando o leitor está DENTRO da pilha e não pediu scroll
-    // livre (o A/B do ScrollLab) — as duas condições valem a qualquer momento,
-    // então a mudança de modo passa pela mesma porta que a de posição
+    // o snap está aceso enquanto o leitor está DENTRO da pilha, e só lá
     const syncRegion = () => {
       if (!snap || !unit || frames.length === 0) return;
       const y = window.scrollY;
-      snap.setEnabled(
-        getScrollMode() === "snap" &&
-          y >= regionTop &&
-          y <= frames[frames.length - 1],
-      );
+      snap.setEnabled(y >= regionTop && y <= frames[frames.length - 1]);
     };
 
     const remeasure = () => {
@@ -329,14 +322,10 @@ export default function PanelStack({
     // Lenis dirige o scroll nativo da janela — o evento nativo já basta
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // o A/B liga/desliga na hora, sem reload
-    const unwatchMode = onScrollModeChange(syncRegion);
-
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", remeasure);
       ro.disconnect();
-      unwatchMode();
       stopWaiting();
       snap?.destroy();
     };

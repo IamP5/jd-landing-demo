@@ -7,8 +7,6 @@ import WhoWeAre from "@/components/WhoWeAre";
 import MerchChapter from "@/components/MerchChapter";
 import Events from "@/components/Events";
 import Footer from "@/components/Footer";
-// TEMP: A/B do scroll do merch (snap x livre) — sai junto com o HeroLab
-import ScrollLab from "@/components/ScrollLab";
 import { NEXT_SECTION_PULL } from "@/components/PanelStack";
 
 export default function Home() {
@@ -27,7 +25,6 @@ export default function Home() {
         <WhoWeAre />
       </div>
       <Footer />
-      <ScrollLab />
     </main>
   );
 }
